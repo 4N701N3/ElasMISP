@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+
+{% block title %}API Documentation - {{ SITE_TITLE }}{% endblock %}
+
+{% block content %}
+<div class="top-bar">
+    <h4 class="mb-0">API Documentation</h4>
+    <a href="http://{{ request.host }}/apidocs/" target="_blank" class="btn btn-primary">
+        <i class="bi bi-code-slash me-1"></i> Interactive Swagger UI
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <!-- Overview -->
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5>Overview</h5>
+            </div>
+            <div class="card-body">
+                <p>The IOC Manager API provides endpoints for managing Indicators of Compromise (IOCs), searching, and linking related indicators.</p>
+                <p><strong>Base URL:</strong> <code>http://{{ request.host }}/api</code></p>
+                <p><strong>Authentication:</strong> Use Bearer token or API key in the Authorization header</p>
+            </div>
+        </div>
+
+        <!-- Authentication -->
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5>Authentication</h5>
+            </div>
+            <div class="card-body">
+                <p>All API endpoints require authentication using either:</p>
+                <div class="mb-3">
+                    <strong>1. JWT Bearer Token</strong>
+                    <pre><code>Authorization: Bearer &lt;your_jwt_token&gt;</code></pre>
+                </div>
+                <div>
+                    <strong>2. API Key</strong>
+                    <pre><code>X-API-Key: &lt;your_api_key&gt;</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- IOCs Endpoints -->
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5>IOC Endpoints</h5>
+            </div>
+            <div class="card-body">
+                <!-- GET /api/ioc -->
+                <h6 class="mt-3">List IOCs</h6>
+                <div class="bg-light p-3 rounded mb-3">
+                    <code class="text-primary">GET</code> <code>/api/ioc</code>
+                </div>
+                <p>Get paginated list of IOCs</p>
+                <p><strong>Query Parameters:</strong></p>
+                <ul>
+                    <li><code>page</code> (int, default: 1) - Page number</li>
+                    <li><code>per_page</code> (int, default: 20, max: 100) - Items per page</li>
+                    <li><code>type</code> (string) - Filter by IOC type (md5, sha1, sha256, ipv4, ipv6, domain, email, url, asn, file-path, process-name, registry-key, windows-registry-key, mutex, certificate-serial)</li>
+                    <li><code>labels</code> (string) - Comma-separated labels to filter</li>
+                    <li><code>tlp</code> (string) - Filter by TLP level (white, green, amber, red)</li>
+                    <li><code>threat_level</code> (string) - Filter by threat level (unknown, low, medium, high, critical)</li>
+                    <li><code>confidence</code> (string) - Filter by confidence level (low, medium, high, very-high)</li>
+                    <li><code>campaigns</code> (string) - Filter by campaigns</li>
+                </ul>
+
+                <!-- POST /api/ioc -->
+                <h6 class="mt-4">Create IOC</h6>
+                <div class="bg-light p-3 rounded mb-3">
+                    <code class="text-success">POST</code> <code>/api/ioc</code>
+                </div>
+                <p>Create a new IOC</p>
+                <p><strong>Request Body:</strong></p>
+                <pre><code>{
+  "type": "ipv4|ipv6|domain|md5|sha1|sha256|email|url|asn|file-path|process-name|registry-key|windows-registry-key|mutex|certificate-serial",
+  "value": "10.0.0.1",
+  "labels": ["malware", "c2"],
+  "source": "internal-analysis",
+  "name": "Suspicious IP",
+  "description": "Known C2 server",
+  "threat_level": "high",
+  "confidence": "high",
+  "tlp": "amber",
+  "campaigns": ["operation-2024"],
+  "valid_from": "2025-12-23T08:47:00Z",
+  "valid_until": "2026-12-23T08:47:00Z"
+}</code></pre>
+
+                <!-- GET /api/ioc/:id -->
+                <h6 class="mt-4">Get IOC Details</h6>
+                <div class="bg-light p-3 rounded mb-3">
+                    <code class="text-primary">GET</code> <code>/api/ioc/:id</code>
+                </div>
+                <p>Get detailed information about a specific IOC</p>
+
+                <!-- PUT /api/ioc/:id -->
+                <h6 class="mt-4">Update IOC</h6>
+                <div class="bg-light p-3 rounded mb-3">
+                    <code class="text-warning">PUT</code> <code>/api/ioc/:id</code>
+                </div>
+                <p>Update an IOC's metadata and validity dates</p>
+                <p><strong>Request Body:</strong></p>
+                <pre><code>{
+  "labels": ["updated", "labels"],
+  "description": "Updated description",
+  "threat_level": "high",
+  "confidence": "high",
+  "tlp": "amber",
+  "campaigns": ["operation-2024"],
+  "valid_from": "2025-12-23T08:47:00Z",
+  "valid_until": "2026-12-23T08:47:00Z"
+}</code></pre>
+
+                <!-- DELETE /api/ioc/:id -->
+                <h6 class="mt-4">Delete IOC</h6>
+                <div class="bg-light p-3 rounded mb-3">
+                    <code class="text-danger">DELETE</code> <code>/api/ioc/:id</code>
+                </div>
+                <p>Delete an IOC</p>
+            </div>
+        </div>
+
+        <!-- Search Endpoints -->
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5>Search Endpoints</h5>
+            </div>
+            <div class="card-body">
+                <!-- GET /api/search -->
+                <h6>Search IOCs</h6>
+                <div class="bg-light p-3 rounded mb-3">
+                    <code class="text-primary">GET</code> <code>/api/search</code>
+                </div>
+                <p>Search for IOCs with filters</p>
+                <p><strong>Query Parameters:</strong></p>
+                <ul>
+                    <li><code>q</code> (string) - Search query</li>
+                    <li><code>type</code> (string) - Filter by type</li>
+                    <li><code>labels</code> (string) - Comma-separated labels</li>
+                    <li><code>page</code> (int) - Page number</li>
+                    <li><code>per_page</code> (int) - Items per page</li>
+                    <li><code>enrich</code> (bool) - Enrich with external APIs</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Relations Endpoints -->
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5>Relations Endpoints</h5>
+            </div>
+            <div class="card-body">
+                <!-- GET /api/ioc/:id/relations -->
+                <h6>Get Related IOCs</h6>
+                <div class="bg-light p-3 rounded mb-3">
+                    <code class="text-primary">GET</code> <code>/api/ioc/:id/relations</code>
+                </div>
+                <p>Get all IOCs related to a specific IOC</p>
+
+                <!-- POST /api/ioc/:id/relations -->
+                <h6 class="mt-4">Create Relations</h6>
+                <div class="bg-light p-3 rounded mb-3">
+                    <code class="text-success">POST</code> <code>/api/ioc/:id/relations</code>
+                </div>
+                <p>Link an IOC to one or more other IOCs</p>
+                <p><strong>Request Body:</strong></p>
+                <pre><code>{
+  "related_ioc_ids": ["ioc_id_1", "ioc_id_2"],
+  "relation_type": "related"
+}</code></pre>
+
+                <!-- DELETE /api/ioc/:id/relations/:relation_id -->
+                <h6 class="mt-4">Delete Relation</h6>
+                <div class="bg-light p-3 rounded mb-3">
+                    <code class="text-danger">DELETE</code> <code>/api/ioc/:id/relations/:relation_id</code>
+                </div>
+                <p>Remove a relation between IOCs</p>
+            </div>
+        </div>
+
+        <!-- Tools Endpoints -->
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5>Tools Endpoints</h5>
+            </div>
+            <div class="card-body">
+                <!-- POST /api/tools/nmap -->
+                <h6>Run Nmap Scan</h6>
+                <div class="bg-light p-3 rounded mb-3">
+                    <code class="text-success">POST</code> <code>/api/tools/nmap</code>
+                </div>
+                <p>Execute an nmap scan and optionally create IOCs from results</p>
+                <p><strong>Request Body:</strong></p>
+                <pre><code>{
+  "target": "192.168.1.1",
+  "flags": "-sV",
+  "create_iocs": true
+}</code></pre>
+
+                <!-- POST /api/tools/ping -->
+                <h6 class="mt-4">Ping Host</h6>
+                <div class="bg-light p-3 rounded mb-3">
+                    <code class="text-success">POST</code> <code>/api/tools/ping</code>
+                </div>
+                <p>Ping a host to check connectivity</p>
+                <p><strong>Request Body:</strong></p>
+                <pre><code>{
+  "target": "8.8.8.8",
+  "count": 4
+}</code></pre>
+
+                <!-- GET /api/tools/task/:task_id -->
+                <h6 class="mt-4">Get Task Status</h6>
+                <div class="bg-light p-3 rounded mb-3">
+                    <code class="text-primary">GET</code> <code>/api/tools/task/:task_id</code>
+                </div>
+                <p>Get the status and results of an asynchronous task</p>
+            </div>
+        </div>
+
+        <!-- Error Responses -->
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5>Error Responses</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>400 Bad Request</strong></p>
+                <pre><code>{
+  "error": "Invalid input parameters"
+}</code></pre>
+
+                <p class="mt-3"><strong>401 Unauthorized</strong></p>
+                <pre><code>{
+  "error": "Authentication required"
+}</code></pre>
+
+                <p class="mt-3"><strong>404 Not Found</strong></p>
+                <pre><code>{
+  "error": "IOC not found"
+}</code></pre>
+
+                <p class="mt-3"><strong>500 Internal Server Error</strong></p>
+                <pre><code>{
+  "error": "Internal server error"
+}</code></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-md-4">
+        <!-- Quick Links -->
+        <div class="card mb-4 sticky-top" style="top: 20px;">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">Quick Links</h6>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item">
+                        <a href="http://{{ request.host }}/apidocs/" target="_blank">
+                            <i class="bi bi-code-slash"></i> Swagger UI
+                        </a>
+                    </li>
+                    <li class="list-group-item">
+                        <a href="http://{{ request.host }}/iocs">
+                            <i class="bi bi-list"></i> IOC List
+                        </a>
+                    </li>
+                    <li class="list-group-item">
+                        <a href="http://{{ request.host }}/iocs/add">
+                            <i class="bi bi-plus-lg"></i> Add IOC
+                        </a>
+                    </li>
+                    <li class="list-group-item">
+                        <a href="http://{{ request.host }}/tools">
+                            <i class="bi bi-hammer"></i> Tools
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- IOC Types -->
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">Supported IOC Types</h6>
+            </div>
+            <div class="card-body">
+                <strong>Hash Types:</strong><br>
+                <div class="badge bg-primary mb-2">md5</div>
+                <div class="badge bg-primary mb-2">sha1</div>
+                <div class="badge bg-primary mb-2">sha256</div>
+                
+                <br><strong>Network:</strong><br>
+                <div class="badge bg-success mb-2">ipv4</div>
+                <div class="badge bg-success mb-2">ipv6</div>
+                <div class="badge bg-success mb-2">domain</div>
+                <div class="badge bg-success mb-2">url</div>
+                <div class="badge bg-success mb-2">email</div>
+                <div class="badge bg-success mb-2">asn</div>
+                
+                <br><strong>File System:</strong><br>
+                <div class="badge bg-warning mb-2">file-path</div>
+                <div class="badge bg-warning mb-2">certificate-serial</div>
+                
+                <br><strong>Process & Registry:</strong><br>
+                <div class="badge bg-info mb-2">process-name</div>
+                <div class="badge bg-info mb-2">registry-key</div>
+                <div class="badge bg-info mb-2">windows-registry-key</div>
+                <div class="badge bg-info mb-2">mutex</div>
+            </div>
+        </div>
+
+        <!-- Threat Levels -->
+        <div class="card">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">Threat Levels</h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <span class="badge bg-secondary">unknown</span> Unknown threat level
+                    </li>
+                    <li class="mb-2">
+                        <span class="badge bg-info">low</span> Low threat level
+                    </li>
+                    <li class="mb-2">
+                        <span class="badge bg-warning">medium</span> Medium threat level
+                    </li>
+                    <li class="mb-2">
+                        <span class="badge bg-danger">high</span> High threat level
+                    </li>
+                    <li class="mb-2">
+                        <span class="badge bg-danger">critical</span> Critical threat level
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- TLP Levels -->
+        <div class="card mt-4">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">Traffic Light Protocol (TLP)</h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <span class="badge bg-secondary">white</span> White - Shareable with everyone
+                    </li>
+                    <li class="mb-2">
+                        <span class="badge bg-success">green</span> Green - Shareable with community
+                    </li>
+                    <li class="mb-2">
+                        <span class="badge bg-warning">amber</span> Amber - Limited sharing
+                    </li>
+                    <li class="mb-2">
+                        <span class="badge bg-danger">red</span> Red - Not shareable
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Confidence Levels -->
+        <div class="card mt-4">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">Confidence Levels</h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <span class="badge bg-secondary">low</span> Low confidence in indicator
+                    </li>
+                    <li class="mb-2">
+                        <span class="badge bg-info">medium</span> Medium confidence in indicator
+                    </li>
+                    <li class="mb-2">
+                        <span class="badge bg-success">high</span> High confidence in indicator
+                    </li>
+                    <li class="mb-2">
+                        <span class="badge bg-primary">very-high</span> Very high confidence in indicator
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
