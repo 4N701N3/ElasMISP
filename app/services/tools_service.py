@@ -2,6 +2,7 @@
 
 import subprocess
 import re
+import shlex
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -21,6 +22,15 @@ class ToolsService:
         Returns:
             Dict with WHOIS information
         """
+        # Validate target to prevent command injection
+        # Allow only alphanumeric, dots, and hyphens (valid for domains and IPs)
+        if not re.match(r'^[a-zA-Z0-9\.\-]+$', target):
+            return {
+                'success': False,
+                'target': target,
+                'error': 'Invalid target. Target must be a valid domain or IP address.'
+            }
+        
         try:
             result = subprocess.run(
                 ['whois', target],
@@ -123,18 +133,62 @@ class ToolsService:
         }
         
         if scan_type == 'custom' and custom_args:
-            # Parse custom arguments safely
-            options = custom_args.split()
-            # Remove dangerous options
-            dangerous = ['-iL', '--script=', '-oN', '-oX', '-oG', '-oA', '-oS']
-            options = [o for o in options if not any(d in o for d in dangerous)]
+            # Parse custom arguments safely with whitelist validation
+            import shlex
+            try:
+                # Use shlex to properly parse arguments (prevents injection)
+                options = shlex.split(custom_args)
+            except ValueError:
+                # If shlex parsing fails, reject the input
+                raise ValueError("Invalid custom arguments format")
+            
+            # Whitelist of allowed nmap options
+            allowed_options = {
+                '-sS', '-sT', '-sU', '-sA', '-sW', '-sM', '-sN', '-sF', '-sX',
+                '-sV', '-O', '-A', '-T0', '-T1', '-T2', '-T3', '-T4', '-T5',
+                '-F', '-r', '--open', '--traceroute', '-6', '-n', '-R',
+                '--min-rate', '--max-rate', '--min-parallelism', '--max-parallelism',
+                '--version-intensity', '--version-light', '--version-all'
+            }
+            
+            # Dangerous options that should never be allowed
+            dangerous_patterns = [
+                '-iL', '--script', '-oN', '-oX', '-oG', '-oA', '-oS',
+                '--script-args', '--datadir', '--servicedb', '--versiondb',
+                ';', '|', '&', '$', '`', '(', ')', '<', '>', '\n', '\r'
+            ]
+            
+            validated_options = []
+            for opt in options:
+                # Check for dangerous patterns
+                if any(pattern in opt for pattern in dangerous_patterns):
+                    continue
+                
+                # Check if option is in whitelist or is a port specification
+                if opt in allowed_options or opt.startswith('-p') or opt.startswith('--max-') or opt.startswith('--min-'):
+                    # Additional validation for port specifications
+                    if opt.startswith('-p'):
+                        port_spec = opt[2:]
+                        if port_spec and not re.match(r'^[0-9,\-]+$', port_spec):
+                            continue
+                    validated_options.append(opt)
+            
+            options = validated_options
         else:
             options = scan_options.get(scan_type, scan_options['quick'])
         
         # Add custom ports if specified
         if ports:
+            # Validate ports parameter - only allow digits, commas, and hyphens
+            if not re.match(r'^[0-9,\-]+$', ports):
+                raise ValueError("Invalid port specification. Only numbers, commas, and hyphens are allowed.")
             options = [o for o in options if not o.startswith('-p') and o != '-F']
             options.append(f'-p{ports}')
+        
+        # Validate target to prevent command injection
+        # Allow IP addresses, CIDR ranges, and valid hostnames only
+        if not re.match(r'^[a-zA-Z0-9\.\-\/]+$', target):
+            raise ValueError("Invalid target. Target must be a valid IP address, hostname, or CIDR range.")
         
         try:
             # Use sudo for scans that require root (-O, -A, -sS, -sT, etc.)
@@ -362,6 +416,18 @@ class ToolsService:
         Returns:
             Dict with traceroute results
         """
+        # Validate target to prevent command injection
+        if not re.match(r'^[a-zA-Z0-9\.\-]+$', target):
+            return {
+                'success': False,
+                'target': target,
+                'error': 'Invalid target. Target must be a valid domain or IP address.'
+            }
+        
+        # Validate max_hops
+        if not isinstance(max_hops, int) or max_hops < 1 or max_hops > 255:
+            max_hops = 30
+        
         try:
             # Try ICMP traceroute first (works best in Docker with NET_RAW cap)
             result = subprocess.run(
@@ -486,6 +552,14 @@ class ToolsService:
         Returns:
             Dict with DNS records
         """
+        # Validate target to prevent command injection
+        if not re.match(r'^[a-zA-Z0-9\.\-]+$', target):
+            return {
+                'success': False,
+                'target': target,
+                'error': 'Invalid target. Target must be a valid domain name.'
+            }
+        
         valid_types = ['A', 'AAAA', 'MX', 'NS', 'TXT', 'CNAME', 'SOA', 'PTR', 'ANY']
         record_type = record_type.upper()
         
@@ -562,6 +636,14 @@ class ToolsService:
         Returns:
             Dict with reverse DNS result
         """
+        # Validate IP address to prevent command injection
+        if not re.match(r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$', ip):
+            return {
+                'success': False,
+                'target': ip,
+                'error': 'Invalid IP address format.'
+            }
+        
         try:
             # Use Google's DNS server for reliable PTR lookups
             result = subprocess.run(
@@ -637,6 +719,19 @@ class ToolsService:
         Returns:
             Dict with ping statistics
         """
+        # Validate target to prevent command injection
+        if not re.match(r'^[a-zA-Z0-9\.\-]+$', target):
+            return {
+                'success': False,
+                'target': target,
+                'error': 'Invalid target. Target must be a valid domain or IP address.',
+                'raw_output': ''
+            }
+        
+        # Validate count
+        if not isinstance(count, int) or count < 1 or count > 100:
+            count = 4
+        
         try:
             # Use -c for Linux/Mac, -n for Windows
             import platform
