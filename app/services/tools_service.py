@@ -3,6 +3,7 @@
 import subprocess
 import re
 import shlex
+import ipaddress
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -134,7 +135,6 @@ class ToolsService:
         
         if scan_type == 'custom' and custom_args:
             # Parse custom arguments safely with whitelist validation
-            import shlex
             try:
                 # Use shlex to properly parse arguments (prevents injection)
                 options = shlex.split(custom_args)
@@ -142,13 +142,18 @@ class ToolsService:
                 # If shlex parsing fails, reject the input
                 raise ValueError("Invalid custom arguments format")
             
-            # Whitelist of allowed nmap options
+            # Whitelist of allowed nmap options (including rate and parallelism options with values)
             allowed_options = {
                 '-sS', '-sT', '-sU', '-sA', '-sW', '-sM', '-sN', '-sF', '-sX',
                 '-sV', '-O', '-A', '-T0', '-T1', '-T2', '-T3', '-T4', '-T5',
                 '-F', '-r', '--open', '--traceroute', '-6', '-n', '-R',
-                '--min-rate', '--max-rate', '--min-parallelism', '--max-parallelism',
                 '--version-intensity', '--version-light', '--version-all'
+            }
+            
+            # Allowed options that can have numeric values
+            allowed_numeric_options = {
+                '--min-rate', '--max-rate', '--min-parallelism', '--max-parallelism',
+                '--min-hostgroup', '--max-hostgroup', '--min-rtt-timeout', '--max-rtt-timeout'
             }
             
             # Dangerous options that should never be allowed
@@ -164,14 +169,27 @@ class ToolsService:
                 if any(pattern in opt for pattern in dangerous_patterns):
                     continue
                 
-                # Check if option is in whitelist or is a port specification
-                if opt in allowed_options or opt.startswith('-p') or opt.startswith('--max-') or opt.startswith('--min-'):
-                    # Additional validation for port specifications
-                    if opt.startswith('-p'):
-                        port_spec = opt[2:]
-                        if port_spec and not re.match(r'^[0-9,\-]+$', port_spec):
-                            continue
+                # Check if option is in whitelist
+                if opt in allowed_options:
                     validated_options.append(opt)
+                # Check if it's a port specification
+                elif opt.startswith('-p'):
+                    port_spec = opt[2:]
+                    if port_spec and re.match(r'^[0-9,\-]+$', port_spec):
+                        validated_options.append(opt)
+                # Check if it's a numeric option (e.g., --min-rate=1000)
+                else:
+                    for allowed_opt in allowed_numeric_options:
+                        if opt.startswith(allowed_opt):
+                            # Extract the value part
+                            if '=' in opt:
+                                opt_name, opt_value = opt.split('=', 1)
+                                if opt_name == allowed_opt and opt_value.isdigit():
+                                    validated_options.append(opt)
+                            elif opt == allowed_opt:
+                                # Option without value (value might be next arg)
+                                validated_options.append(opt)
+                            break
             
             options = validated_options
         else:
@@ -636,8 +654,10 @@ class ToolsService:
         Returns:
             Dict with reverse DNS result
         """
-        # Validate IP address to prevent command injection
-        if not re.match(r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$', ip):
+        # Validate IP address to prevent command injection using ipaddress module
+        try:
+            ipaddress.IPv4Address(ip)
+        except (ipaddress.AddressValueError, ValueError):
             return {
                 'success': False,
                 'target': ip,
