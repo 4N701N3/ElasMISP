@@ -240,63 +240,6 @@ function getPriorityBadge(priority) {
     return `<span class="badge bg-${colors[priority] || 'secondary'}">${priority || 'unknown'}</span>`;
 }
 
-function getSeverityBadge(severity) {
-    const colors = {
-        'critical': 'danger',
-        'high': 'warning', 
-        'medium': 'info',
-        'low': 'secondary'
-    };
-    return `<span class="badge bg-${colors[severity] || 'secondary'}">${severity || 'unknown'}</span>`;
-}
-
-function formatDate(dateStr) {
-    if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-    });
-}
-
-
-function renderPagination(total, page, perPage) {
-    const totalPages = Math.ceil(total / perPage);
-    const start = (page - 1) * perPage + 1;
-    const end = Math.min(page * perPage, total);
-
-    document.getElementById('paginationInfo').textContent = 
-        total > 0 ? `Showing ${start}-${end} of ${total}` : 'No results';
-
-    const paginationList = document.getElementById('paginationList');
-    if (totalPages <= 1) {
-        paginationList.innerHTML = '';
-        return;
-    }
-
-    let html = `
-        <li class="page-item ${page === 1 ? 'disabled' : ''}">
-            <a class="page-link" href="#" onclick="goToPage(${page - 1}); return false;">&laquo;</a>
-        </li>
-    `;
-
-    for (let i = 1; i <= Math.min(totalPages, 5); i++) {
-        html += `
-            <li class="page-item ${page === i ? 'active' : ''}">
-                <a class="page-link" href="#" onclick="goToPage(${i}); return false;">${i}</a>
-            </li>
-        `;
-    }
-
-    html += `
-        <li class="page-item ${page === totalPages ? 'disabled' : ''}">
-            <a class="page-link" href="#" onclick="goToPage(${page + 1}); return false;">&raquo;</a>
-        </li>
-    `;
-
-    paginationList.innerHTML = html;
-}
-
 function goToPage(page) {
     currentPage = page;
     loadCases();

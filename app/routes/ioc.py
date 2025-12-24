@@ -8,7 +8,7 @@ from app.auth import login_or_api_key_required
 from app.services.ioc_service import IOCService
 from app.services.audit_service import AuditService
 from app.utils.pattern_generator import PatternGenerator
-from app.utils.request_helpers import get_pagination_params, parse_comma_separated_list
+from app.utils.request_helpers import get_pagination_params, parse_comma_separated_list, build_filters_dict
 
 ioc_bp = Blueprint('ioc', __name__, url_prefix=None)
 
@@ -216,8 +216,7 @@ def get_versions(ioc_id):
     """
     service = IOCService()
     
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 20, type=int)
+    page, per_page = get_pagination_params(default_per_page=20)
     
     versions = service.get_versions(ioc_id, page=page, per_page=per_page)
     
@@ -708,24 +707,23 @@ def list_iocs():
               type: integer
     """
     page, per_page = get_pagination_params(default_per_page=20)
-    ioc_type = request.args.get('type')
     labels = parse_comma_separated_list('labels')
-    tlp = request.args.get('tlp')
-    threat_level = request.args.get('threat_level')
-    confidence = request.args.get('confidence')
     campaigns = parse_comma_separated_list('campaigns')
     
+    filters = build_filters_dict({
+        'type': None,
+        'tlp': None,
+        'threat_level': None,
+        'confidence': None
+    })
+    
+    if labels:
+        filters['labels'] = labels
+    if campaigns:
+        filters['campaigns'] = campaigns
+    
     service = IOCService()
-    result = service.list(
-        page=page,
-        per_page=per_page,
-        ioc_type=ioc_type,
-        labels=labels if labels else None,
-        tlp=tlp,
-        threat_level=threat_level,
-        confidence=confidence,
-        campaigns=campaigns if campaigns else None
-    )
+    result = service.list(page=page, per_page=per_page, **filters)
     
     return jsonify(result)
 

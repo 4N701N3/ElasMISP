@@ -786,6 +786,7 @@
             return String(text).replace(/[&<>"']/g, m => map[m]);
         }
     </script>
+    <script src="{{ url_for('static', filename='js/pagination.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

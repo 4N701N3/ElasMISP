@@ -6,6 +6,7 @@ import secrets
 
 from app.services.elasticsearch_service import ElasticsearchService
 from app.services.audit_service import AuditService
+from app.services.base_service import BaseListService
 
 
 class CaseService:
@@ -530,11 +531,11 @@ class IncidentService:
         return True
 
 
-class TimelineService:
+class TimelineService(BaseListService):
     """Service for managing investigation timeline events."""
     
     def __init__(self):
-        self.es = ElasticsearchService()
+        super().__init__()
     
     def add_event(self, data: Dict, user_id: str, username: str) -> Dict:
         """Add a timeline event."""
@@ -613,15 +614,4 @@ class TimelineService:
             'size': per_page
         })
         
-        items = []
-        for hit in result['hits']['hits']:
-            event = hit['_source']
-            event['id'] = hit['_id']
-            items.append(event)
-        
-        return {
-            'items': items,
-            'total': result['hits']['total']['value'],
-            'page': page,
-            'per_page': per_page
-        }
+        return self.build_paginated_response(result, page, per_page)

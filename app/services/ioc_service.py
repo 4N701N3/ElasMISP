@@ -6,11 +6,12 @@ from typing import Dict, Any, Optional, List, Tuple
 from app.services.elasticsearch_service import ElasticsearchService
 from app.services.cache_service import CacheService
 from app.services.audit_service import AuditService
+from app.services.base_service import BaseListService
 from app.models.stix_schema import STIXIndicator
 from app.utils.pattern_generator import PatternGenerator
 
 
-class IOCService:
+class IOCService(BaseListService):
     """Service for IOC CRUD operations with deduplication."""
     
     # Risk score weights and mappings
@@ -759,18 +760,7 @@ class IOCService:
             'size': per_page
         })
         
-        items = []
-        for hit in result['hits']['hits']:
-            doc = hit['_source']
-            doc['id'] = hit['_id']
-            items.append(doc)
-        
-        return {
-            'items': items,
-            'total': result['hits']['total']['value'],
-            'page': page,
-            'per_page': per_page
-        }
+        return self.build_paginated_response(result, page, per_page)
     
     def restore_version(self, ioc_id: str, version_number: int, user_id: str = None, username: str = None) -> Optional[Dict]:
         """Restore an IOC to a previous version."""

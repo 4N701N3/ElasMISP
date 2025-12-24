@@ -94,9 +94,9 @@ def search_iocs():
     source = data.get('source')
     from_date = data.get('from_date')
     to_date = data.get('to_date')
-    page = int(data.get('page', 1))
-    per_page = min(int(data.get('per_page', 20)), 100)
     enrich = data.get('enrich', 'false').lower() == 'true' if isinstance(data.get('enrich'), str) else bool(data.get('enrich'))
+    
+    page, per_page = get_pagination_params(default_per_page=20)
     
     # Handle labels
     labels = data.get('labels')

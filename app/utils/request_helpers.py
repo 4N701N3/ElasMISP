@@ -166,3 +166,72 @@ def build_error_response(message: str, details: Optional[Dict] = None) -> Dict[s
     if details:
         response.update(details)
     return response
+
+def get_sort_param(default: str = 'created_desc') -> str:
+    """
+    Get sort parameter from request.
+    
+    Args:
+        default: Default sort parameter
+        
+    Returns:
+        Sort parameter value
+    """
+    return request.args.get('sort', default)
+
+
+def get_search_query() -> Optional[str]:
+    """
+    Get search/query parameter from request.
+    
+    Returns:
+        Search query or None
+    """
+    return request.args.get('search') or request.args.get('q')
+
+
+def get_filter_value(filter_name: str, allowed_values: Optional[List[str]] = None) -> Optional[str]:
+    """
+    Get and validate a filter parameter value.
+    
+    Args:
+        filter_name: Name of the filter parameter
+        allowed_values: List of allowed values (validates if provided)
+        
+    Returns:
+        Filter value if valid, None otherwise
+    """
+    value = request.args.get(filter_name)
+    
+    if value is None:
+        return None
+    
+    if allowed_values and value not in allowed_values:
+        return None
+    
+    return value
+
+
+def build_filters_dict(filter_specs: Dict[str, Optional[List[str]]]) -> Dict[str, str]:
+    """
+    Build filters dictionary from request parameters.
+    
+    Args:
+        filter_specs: Dict of filter_name -> allowed_values (or None for any value)
+        
+    Returns:
+        Dict of validated filters
+        
+    Example:
+        filters = build_filters_dict({
+            'status': ['open', 'closed', 'in-progress'],
+            'priority': ['low', 'medium', 'high'],
+            'search': None  # Allow any value
+        })
+    """
+    filters = {}
+    for filter_name, allowed_values in filter_specs.items():
+        value = get_filter_value(filter_name, allowed_values)
+        if value:
+            filters[filter_name] = value
+    return filters

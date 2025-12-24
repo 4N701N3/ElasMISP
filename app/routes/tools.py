@@ -7,7 +7,7 @@ from flask import Blueprint, request, jsonify, g
 from app.auth import login_or_api_key_required
 from app.services.tools_service import ToolsService
 from app.services.elasticsearch_service import ElasticsearchService
-from app.utils.request_helpers import get_pagination_params
+from app.utils.request_helpers import get_pagination_params, build_filters_dict
 
 tools_bp = Blueprint('tools', __name__)
 
@@ -602,18 +602,18 @@ def list_scans():
     es = ElasticsearchService()
     
     page, per_page = get_pagination_params(default_per_page=20)
-    tool_filter = request.args.get('tool')
+    filters = build_filters_dict({'tool': None})
     
     from_idx = (page - 1) * per_page
     
     query = {'term': {'user_id': g.current_user.id}}
     
-    if tool_filter:
+    if filters.get('tool'):
         query = {
             'bool': {
                 'must': [
                     {'term': {'user_id': g.current_user.id}},
-                    {'term': {'tool': tool_filter}}
+                    {'term': {'tool': filters['tool']}}
                 ]
             }
         }

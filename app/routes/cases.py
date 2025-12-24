@@ -8,7 +8,7 @@ from app.services.case_service import CaseService, IncidentService, TimelineServ
 from app.services.comment_service import CommentService, SnippetService
 from app.services.audit_service import AuditService
 from app.services.elasticsearch_service import ElasticsearchService
-from app.utils.request_helpers import get_pagination_params
+from app.utils.request_helpers import get_pagination_params, build_filters_dict
 
 bp = Blueprint('cases', __name__)
 
@@ -68,18 +68,13 @@ def list_cases():
               type: integer
     """
     page, per_page = get_pagination_params(default_per_page=20)
-    status = request.args.get('status')
-    priority = request.args.get('priority')
-    search = request.args.get('search')
     sort = request.args.get('sort', 'created_desc')
     
-    filters = {}
-    if status:
-        filters['status'] = status
-    if priority:
-        filters['priority'] = priority
-    if search:
-        filters['search'] = search
+    filters = build_filters_dict({
+        'status': None,
+        'priority': None,
+        'search': None
+    })
     
     result = case_service.list_cases(
         page=page, per_page=per_page, filters=filters if filters else None, sort=sort
@@ -348,18 +343,13 @@ def list_incidents():
               type: integer
     """
     page, per_page = get_pagination_params(default_per_page=20)
-    status = request.args.get('status')
-    severity = request.args.get('severity')
-    search = request.args.get('search')
     sort = request.args.get('sort', 'created_desc')
     
-    filters = {}
-    if status:
-        filters['status'] = status
-    if severity:
-        filters['severity'] = severity
-    if search:
-        filters['search'] = search
+    filters = build_filters_dict({
+        'status': None,
+        'severity': None,
+        'search': None
+    })
     
     result = incident_service.list_incidents(
         page=page, per_page=per_page, filters=filters if filters else None, sort=sort
