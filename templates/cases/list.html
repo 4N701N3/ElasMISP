@@ -101,16 +101,16 @@
     <div class="card">
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-hover align-middle">
+                <table class="table table-hover align-middle" id="casesTable">
                     <thead>
                         <tr>
-                            <th>Case</th>
-                            <th>Status</th>
-                            <th>Priority</th>
-                            <th>Severity</th>
+                            <th class="sortable" data-sort="title" style="cursor: pointer;">Case <i class="bi bi-arrow-down-up"></i></th>
+                            <th class="sortable" data-sort="status" style="cursor: pointer;">Status <i class="bi bi-arrow-down-up"></i></th>
+                            <th class="sortable" data-sort="priority" style="cursor: pointer;">Priority <i class="bi bi-arrow-down-up"></i></th>
+                            <th class="sortable" data-sort="severity" style="cursor: pointer;">Severity <i class="bi bi-arrow-down-up"></i></th>
                             <th>IOCs</th>
                             <th>Assignee</th>
-                            <th>Created</th>
+                            <th class="sortable" data-sort="created" style="cursor: pointer;">Created <i class="bi bi-arrow-down-up"></i></th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -174,7 +174,7 @@ function loadCases() {
         .then(stats => {
             document.getElementById('statTotal').textContent = stats.total || 0;
             document.getElementById('statOpen').textContent = stats.by_status?.open || 0;
-            document.getElementById('statInProgress').textContent = stats.by_status?.['in-progress'] || 0;
+            document.getElementById('statInProgress').textContent = stats.by_status?.in_progress || 0;
             document.getElementById('statClosed').textContent = stats.by_status?.closed || 0;
         });
 }
@@ -259,11 +259,6 @@ function formatDate(dateStr) {
     });
 }
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text || '';
-    return div.innerHTML;
-}
 
 function renderPagination(total, page, perPage) {
     const totalPages = Math.ceil(total / perPage);
@@ -329,7 +324,83 @@ function deleteCase(caseId) {
         });
 }
 
+// Sorting functionality
+let currentSort = { field: null, direction: 'asc' };
+
+function sortTable(field) {
+    const table = document.getElementById('casesTable');
+    const tbody = document.getElementById('casesTableBody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    // Remove existing sort indicators
+    document.querySelectorAll('th.sortable i').forEach(i => {
+        i.className = 'bi bi-arrow-down-up';
+    });
+    
+    // Toggle direction if same field
+    if (currentSort.field === field) {
+        currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSort.field = field;
+        currentSort.direction = 'asc';
+    }
+    
+    // Sort rows
+    rows.sort((a, b) => {
+        let aVal, bVal;
+        
+        switch(field) {
+            case 'title':
+                aVal = a.cells[0].textContent.trim();
+                bVal = b.cells[0].textContent.trim();
+                break;
+            case 'status':
+                aVal = a.cells[1].textContent.trim();
+                bVal = b.cells[1].textContent.trim();
+                break;
+            case 'priority':
+                const priorityOrder = { low: 1, medium: 2, high: 3, critical: 4 };
+                aVal = priorityOrder[a.cells[3].textContent.trim().toLowerCase()] || 0;
+                bVal = priorityOrder[b.cells[3].textContent.trim().toLowerCase()] || 0;
+                break;
+            case 'severity':
+                aVal = a.cells[3].textContent.trim();
+                bVal = b.cells[3].textContent.trim();
+                break;
+            case 'created':
+                aVal = new Date(a.cells[6].textContent.trim());
+                bVal = new Date(b.cells[6].textContent.trim());
+                break;
+            default:
+                return 0;
+        }
+        
+        if (typeof aVal === 'string') {
+            aVal = aVal.toLowerCase();
+            bVal = bVal.toLowerCase();
+            return currentSort.direction === 'asc' 
+                ? aVal.localeCompare(bVal)
+                : bVal.localeCompare(aVal);
+        } else {
+            return currentSort.direction === 'asc'
+                ? aVal - bVal
+                : bVal - aVal;
+        }
+    });
+    
+    // Update sort indicator
+    document.querySelector(`th[data-sort="${field}"] i`).className = 
+        currentSort.direction === 'asc' ? 'bi bi-sort-down' : 'bi bi-sort-up';
+    
+    // Re-insert sorted rows
+    rows.forEach(row => tbody.appendChild(row));
+}
+
 // Event listeners
+document.querySelectorAll('th.sortable').forEach(header => {
+    header.addEventListener('click', () => sortTable(header.dataset.sort));
+});
+
 document.getElementById('searchInput').addEventListener('input', debounce(loadCases, 300));
 document.getElementById('statusFilter').addEventListener('change', loadCases);
 document.getElementById('priorityFilter').addEventListener('change', loadCases);

@@ -592,7 +592,7 @@ class IOCService:
         
         result = self.es.aggregate(self.index, {
             "by_type": {
-                "terms": {"field": "ioc_type", "size": 10}
+                "terms": {"field": "x_metadata.ioc_type", "size": 100}
             },
             "by_label": {
                 "terms": {"field": "labels", "size": 20}
@@ -604,10 +604,10 @@ class IOCService:
                 "terms": {"field": "threat_level", "size": 5}
             },
             "by_status": {
-                "terms": {"field": "status", "size": 5}
+                "terms": {"field": "x_metadata.status", "size": 5}
             },
             "avg_risk_score": {
-                "avg": {"field": "risk_score"}
+                "avg": {"field": "x_metadata.risk_score"}
             },
             "total": {
                 "value_count": {"field": "id"}

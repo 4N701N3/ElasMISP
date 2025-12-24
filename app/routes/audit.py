@@ -4,6 +4,7 @@ from flask import Blueprint, request, jsonify, g
 
 from app.auth import login_or_api_key_required
 from app.services.audit_service import AuditService
+from app.utils.request_helpers import get_pagination_params
 
 audit_bp = Blueprint('audit', __name__, url_prefix='/api/audit')
 
@@ -63,8 +64,7 @@ def list_logs():
     """
     service = AuditService()
     
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
+    page, per_page = get_pagination_params(default_per_page=50)
     
     filters = {}
     if request.args.get('action'):

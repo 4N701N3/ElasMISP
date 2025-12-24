@@ -8,6 +8,7 @@ from app.auth import login_or_api_key_required
 from app.services.ioc_service import IOCService
 from app.services.audit_service import AuditService
 from app.utils.pattern_generator import PatternGenerator
+from app.utils.request_helpers import get_pagination_params, parse_comma_separated_list
 
 ioc_bp = Blueprint('ioc', __name__, url_prefix=None)
 
@@ -706,28 +707,24 @@ def list_iocs():
             per_page:
               type: integer
     """
-    page = request.args.get('page', 1, type=int)
-    per_page = min(request.args.get('per_page', 20, type=int), 100)
+    page, per_page = get_pagination_params(default_per_page=20)
     ioc_type = request.args.get('type')
-    labels = request.args.get('labels')
+    labels = parse_comma_separated_list('labels')
     tlp = request.args.get('tlp')
     threat_level = request.args.get('threat_level')
     confidence = request.args.get('confidence')
-    campaigns = request.args.get('campaigns')
-    
-    if labels:
-        labels = [l.strip() for l in labels.split(',')]
+    campaigns = parse_comma_separated_list('campaigns')
     
     service = IOCService()
     result = service.list(
         page=page,
         per_page=per_page,
         ioc_type=ioc_type,
-        labels=labels,
+        labels=labels if labels else None,
         tlp=tlp,
         threat_level=threat_level,
         confidence=confidence,
-        campaigns=campaigns
+        campaigns=campaigns if campaigns else None
     )
     
     return jsonify(result)

@@ -7,8 +7,47 @@ from flask import Blueprint, request, jsonify, g
 from app.auth import login_or_api_key_required
 from app.services.tools_service import ToolsService
 from app.services.elasticsearch_service import ElasticsearchService
+from app.utils.request_helpers import get_pagination_params
 
 tools_bp = Blueprint('tools', __name__)
+
+
+def _save_scan_result(tool_name: str, target: str, result: dict, extra_fields: dict = None) -> str:
+    """
+    Helper method to save scan results to Elasticsearch.
+    Reduces code duplication across tool endpoints.
+    
+    Args:
+        tool_name: Name of the tool (whois, ping, nmap, etc.)
+        target: Target of the scan
+        result: Result data from the tool
+        extra_fields: Optional dict with additional scan metadata fields
+    
+    Returns:
+        scan_id: ID of the saved scan
+    """
+    es = ElasticsearchService()
+    scan_id = str(uuid.uuid4())
+    
+    # Prepare document - remove timestamp to avoid duplication
+    result_copy = dict(result)
+    result_copy.pop('timestamp', None)
+    
+    scan_doc = {
+        'user_id': g.current_user.id,
+        'tool': tool_name,
+        'target': target,
+        'success': result.get('success', False),
+        'result': result_copy,
+        'timestamp': datetime.utcnow().isoformat() + 'Z'
+    }
+    
+    # Add extra metadata fields if provided
+    if extra_fields:
+        scan_doc.update(extra_fields)
+    
+    es.index('scan_results', scan_id, scan_doc)
+    return scan_id
 
 
 @tools_bp.route('/whois', methods=['POST'])
@@ -63,25 +102,7 @@ def whois_lookup():
     result = tools.whois_lookup(target)
     
     # Save result to Elasticsearch
-    es = ElasticsearchService()
-    scan_id = str(uuid.uuid4())
-    
-    # Prepare document - keep raw_output for display
-    result_copy = dict(result)
-    result_copy.pop('timestamp', None)
-    
-    scan_doc = {
-        'user_id': g.current_user.id,
-        'tool': 'whois',
-        'target': target,
-        'success': result.get('success', False),
-        'result': result_copy,
-        'timestamp': datetime.utcnow().isoformat() + 'Z'
-    }
-    
-    es.index('scan_results', scan_id, scan_doc)
-    
-    result['scan_id'] = scan_id
+    result['scan_id'] = _save_scan_result('whois', target, result)
     return jsonify(result)
 
 
@@ -154,26 +175,7 @@ def ping():
     print(f"ROUTE PING: result keys = {result.keys()}, has raw_output = {'raw_output' in result}", file=sys.stderr)
     
     # Save result to Elasticsearch
-    es = ElasticsearchService()
-    scan_id = str(uuid.uuid4())
-    
-    # Prepare document
-    result_copy = dict(result)
-    result_copy.pop('timestamp', None)
-    
-    scan_doc = {
-        'user_id': g.current_user.id,
-        'tool': 'ping',
-        'target': target,
-        'count': count,
-        'success': result.get('success', False),
-        'result': result_copy,
-        'timestamp': datetime.utcnow().isoformat() + 'Z'
-    }
-    
-    es.index('scan_results', scan_id, scan_doc)
-    
-    result['scan_id'] = scan_id
+    result['scan_id'] = _save_scan_result('ping', target, result)
     return jsonify(result)
 
 
@@ -333,24 +335,7 @@ def traceroute():
     tools = ToolsService()
     result = tools.traceroute(target, max_hops)
     
-    # Save to ES
-    es = ElasticsearchService()
-    scan_id = str(uuid.uuid4())
-    
-    result_copy = dict(result)
-    result_copy.pop('timestamp', None)
-    
-    scan_doc = {
-        'user_id': g.current_user.id,
-        'tool': 'traceroute',
-        'target': target,
-        'success': result.get('success', False),
-        'result': result_copy,
-        'timestamp': datetime.utcnow().isoformat() + 'Z'
-    }
-    
-    es.index('scan_results', scan_id, scan_doc)
-    
+    scan_id = _save_scan_result('traceroute', target, result, {'max_hops': max_hops})
     result['scan_id'] = scan_id
     return jsonify(result)
 
@@ -407,25 +392,7 @@ def dig_lookup():
     tools = ToolsService()
     result = tools.dig_lookup(target, record_type)
     
-    # Save to ES
-    es = ElasticsearchService()
-    scan_id = str(uuid.uuid4())
-    
-    result_copy = dict(result)
-    result_copy.pop('timestamp', None)
-    
-    scan_doc = {
-        'user_id': g.current_user.id,
-        'tool': 'dig',
-        'target': target,
-        'record_type': record_type,
-        'success': result.get('success', False),
-        'result': result_copy,
-        'timestamp': datetime.utcnow().isoformat() + 'Z'
-    }
-    
-    es.index('scan_results', scan_id, scan_doc)
-    
+    scan_id = _save_scan_result('dig', target, result, {'record_type': record_type})
     result['scan_id'] = scan_id
     return jsonify(result)
 
@@ -474,24 +441,7 @@ def reverse_dns():
     tools = ToolsService()
     result = tools.reverse_dns(target)
     
-    # Save to ES
-    es = ElasticsearchService()
-    scan_id = str(uuid.uuid4())
-    
-    result_copy = dict(result)
-    result_copy.pop('timestamp', None)
-    
-    scan_doc = {
-        'user_id': g.current_user.id,
-        'tool': 'reverse-dns',
-        'target': target,
-        'success': result.get('success', False),
-        'result': result_copy,
-        'timestamp': datetime.utcnow().isoformat() + 'Z'
-    }
-    
-    es.index('scan_results', scan_id, scan_doc)
-    
+    scan_id = _save_scan_result('reverse-dns', target, result)
     result['scan_id'] = scan_id
     return jsonify(result)
 
@@ -651,8 +601,7 @@ def list_scans():
     """
     es = ElasticsearchService()
     
-    page = request.args.get('page', 1, type=int)
-    per_page = min(request.args.get('per_page', 20, type=int), 100)
+    page, per_page = get_pagination_params(default_per_page=20)
     tool_filter = request.args.get('tool')
     
     from_idx = (page - 1) * per_page

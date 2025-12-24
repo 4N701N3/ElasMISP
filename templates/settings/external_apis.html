@@ -716,11 +716,7 @@ function addFieldFromTestResult(fieldPath) {
     new bootstrap.Modal(document.getElementById('taxiiFieldSelectorModal')).show();
 }
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+
 
 function updatePostBodyVisibility() {
     const method = $('#apiMethod').val();

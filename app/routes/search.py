@@ -7,6 +7,7 @@ from app.services.elasticsearch_service import ElasticsearchService
 from app.services.enrichment_service import EnrichmentService
 from app.services.ioc_service import IOCService
 from app.utils.pattern_generator import PatternGenerator
+from app.utils.request_helpers import get_pagination_params, parse_comma_separated_list
 
 search_bp = Blueprint('search', __name__)
 es_service = ElasticsearchService()
