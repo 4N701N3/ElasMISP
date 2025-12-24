@@ -772,7 +772,21 @@
         function getTypeBadge(type) {
             return `<span class="ioc-type-badge ioc-type-${type}">${type.toUpperCase()}</span>`;
         }
+        
+        // HTML escaping utility (shared across all templates)
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return String(text).replace(/[&<>"']/g, m => map[m]);
+        }
     </script>
+    <script src="{{ url_for('static', filename='js/pagination.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

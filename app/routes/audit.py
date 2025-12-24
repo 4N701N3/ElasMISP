@@ -4,8 +4,10 @@ from flask import Blueprint, request, jsonify, g
 
 from app.auth import login_or_api_key_required
 from app.services.audit_service import AuditService
+from app.utils.request_helpers import get_pagination_params, build_filters_dict
 
 audit_bp = Blueprint('audit', __name__, url_prefix='/api/audit')
+
 
 
 @audit_bp.route('logs', methods=['GET'])
@@ -63,20 +65,15 @@ def list_logs():
     """
     service = AuditService()
     
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
+    page, per_page = get_pagination_params(default_per_page=50)
     
-    filters = {}
-    if request.args.get('action'):
-        filters['action'] = request.args.get('action')
-    if request.args.get('entity_type'):
-        filters['entity_type'] = request.args.get('entity_type')
-    if request.args.get('user_id'):
-        filters['user_id'] = request.args.get('user_id')
-    if request.args.get('from_date'):
-        filters['from_date'] = request.args.get('from_date')
-    if request.args.get('to_date'):
-        filters['to_date'] = request.args.get('to_date')
+    filters = build_filters_dict({
+        'action': None,
+        'entity_type': None,
+        'user_id': None,
+        'from_date': None,
+        'to_date': None
+    })
     
     result = service.list(page=page, per_page=per_page, **filters)
     

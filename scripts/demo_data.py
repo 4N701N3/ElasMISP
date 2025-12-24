@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app import create_app
 from app.services.ioc_service import IOCService
 from app.services.elasticsearch_service import ElasticsearchService
+from app.services.case_service import CaseService, IncidentService
 
 
 # Check if demo data generation is enabled
@@ -170,7 +171,7 @@ def populate_demo_data():
                 if ioc.get('sources'):
                     source = ioc['sources'][0]  # Take first source
                 
-                result = service.create(
+                ioc_doc, is_new = service.create(
                     ioc_type=ioc['ioc_type'],
                     value=ioc['ioc_value'],
                     name=ioc.get('name'),
@@ -184,7 +185,7 @@ def populate_demo_data():
                     valid_from=ioc.get('valid_from'),
                     valid_until=ioc.get('valid_until')
                 )
-                created_ids.append(result[0]['id'])
+                created_ids.append(ioc_doc['id'])
                 if i % 10 == 0:
                     print(f"   Created {i}/100 IOCs...")
             except Exception as e:
@@ -192,9 +193,100 @@ def populate_demo_data():
         
         print(f"   ✓ Created {len(created_ids)} IOCs successfully")
         
+        # Create cases and incidents with IOC links
+        print("\n2. Creating cases with related incidents...")
+        case_service = CaseService()
+        incident_service = IncidentService()
+        
+        case_titles = [
+            'APT Campaign - Eastern Europe',
+            'Ransomware Investigation - Healthcare',
+            'Phishing Campaign - Financial Sector',
+            'Malware Analysis - Infrastructure',
+            'Data Breach - Government'
+        ]
+        
+        incident_categories = ['malware', 'phishing', 'data_breach', 'ransomware', 'ddos', 'exploit']
+        severities = ['low', 'medium', 'high', 'critical']
+        statuses_case = ['open', 'in_progress', 'closed']
+        
+        created_cases = []
+        created_incidents = []
+        
+        # Create 5 cases
+        for i, case_title in enumerate(case_titles):
+            try:
+                # Select 5-10 random IOCs for this case
+                num_iocs = random.randint(5, min(10, len(created_ids)))
+                case_iocs = random.sample(created_ids, num_iocs)
+                
+                case_data = {
+                    'title': case_title,
+                    'description': f'Investigation into {case_title.lower()}',
+                    'status': random.choice(statuses_case),
+                    'priority': random.choice(['low', 'medium', 'high', 'critical']),
+                    'severity': random.choice(severities),
+                    'case_type': random.choice(['investigation', 'threat_hunt', 'incident_response']),
+                    'tags': [random.choice(['urgent', 'high-profile', 'ongoing', 'suspicious'])],
+                    'tlp': random.choice(['white', 'green', 'amber', 'red']),
+                    'ioc_ids': case_iocs
+                }
+                
+                case = case_service.create_case(case_data, 'demo_user', 'Demo User')
+                created_cases.append(case)
+                print(f"   Created case: {case_title}")
+                
+                # Create 2-4 incidents for this case
+                num_incidents = random.randint(2, 4)
+                for j in range(num_incidents):
+                    try:
+                        # Each incident gets 3-6 random IOCs
+                        num_iocs_incident = random.randint(3, min(6, len(created_ids)))
+                        incident_iocs = random.sample(created_ids, num_iocs_incident)
+                        
+                        incident_data = {
+                            'case_id': case['id'],
+                            'title': f'Incident {j+1}: {random.choice(["Attack", "Detection", "Alert"])} in {case_title}',
+                            'description': f'Security incident related to {case_title}',
+                            'status': random.choice(['detected', 'acknowledged', 'contained', 'resolved']),
+                            'severity': random.choice(severities),
+                            'category': random.choice(incident_categories),
+                            'ioc_ids': incident_iocs,
+                            'affected_assets': f'Asset Group {chr(65+j)}',
+                            'attack_vector': random.choice(['network', 'email', 'physical', 'supply_chain']),
+                            'mitre_tactics': random.sample(['reconnaissance', 'initial-access', 'execution', 'persistence', 'privilege-escalation'], random.randint(1, 3)),
+                            'mitre_techniques': ['T1234', 'T1567', 'T1890']
+                        }
+                        
+                        incident = incident_service.create_incident(incident_data, 'demo_user', 'Demo User')
+                        created_incidents.append(incident)
+                        print(f"      Created incident: {incident_data['title']}")
+                    except Exception as e:
+                        print(f"      Warning: Failed to create incident {j+1}: {str(e)}")
+            except Exception as e:
+                print(f"   Warning: Failed to create case {i+1}: {str(e)}")
+        
+        print(f"   ✓ Created {len(created_cases)} cases with {len(created_incidents)} incidents")
+        
+        # Create case-to-incident relationships
+        print("\n3. Creating relationships between cases and incidents...")
+        created_relations = 0
+        for case in created_cases:
+            # Link 1-2 random incidents to this case
+            num_links = random.randint(1, min(2, len(created_incidents)))
+            if num_links > 0:
+                for incident in random.sample(created_incidents, min(num_links, len(created_incidents))):
+                    try:
+                        case_service.link_incident(case['id'], incident['id'])
+                        created_relations += 1
+                    except Exception as e:
+                        print(f"      Warning: Failed to link incident: {str(e)}")
+        
+        print(f"   ✓ Created {created_relations} case-incident relationships")
+        
         # Create random relationships between IOCs
         if len(created_ids) > 1:
-            print("\n2. Creating random relationships...")
+            print("\n4. Creating random IOC relationships...")
             relation_types = [
                 'communicates-with',
                 'exploits',
@@ -249,6 +341,8 @@ def populate_demo_data():
         print("\n" + "=" * 60)
         print("Demo data population complete!")
         print(f"Total IOCs created: {len(created_ids)}")
+        print(f"Total cases created: {len(created_cases)}")
+        print(f"Total incidents created: {len(created_incidents)}")
         print("=" * 60)
 
 

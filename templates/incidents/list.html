@@ -19,7 +19,7 @@
     <div class="card mb-4">
         <div class="card-body">
             <div class="row g-3">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-search"></i></span>
                         <input type="text" class="form-control" id="searchInput" placeholder="Search incidents...">
@@ -60,8 +60,18 @@
                     </select>
                 </div>
                 <div class="col-md-2">
+                    <select class="form-select" id="sortBy">
+                        <option value="created_desc">Latest First</option>
+                        <option value="created_asc">Oldest First</option>
+                        <option value="title_asc">Title A-Z</option>
+                        <option value="title_desc">Title Z-A</option>
+                        <option value="severity_desc">Highest Severity</option>
+                        <option value="severity_asc">Lowest Severity</option>
+                    </select>
+                </div>
+                <div class="col-md-1">
                     <button class="btn btn-outline-secondary w-100" onclick="resetFilters()">
-                        <i class="bi bi-x-circle me-1"></i> Reset
+                        <i class="bi bi-x-circle"></i>
                     </button>
                 </div>
             </div>
@@ -96,7 +106,8 @@ function loadIncidents() {
         per_page: perPage,
         status: document.getElementById('statusFilter').value,
         severity: document.getElementById('severityFilter').value,
-        search: document.getElementById('searchInput').value
+        search: document.getElementById('searchInput').value,
+        sort: document.getElementById('sortBy').value
     });
 
     for (const [key, value] of [...params.entries()]) {
@@ -179,48 +190,6 @@ function getStatusColor(status) {
     return colors[status] || 'secondary';
 }
 
-function formatDate(dateStr) {
-    if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text || '';
-    return div.innerHTML;
-}
-
-function renderPagination(total, page, perPage) {
-    const totalPages = Math.ceil(total / perPage);
-    const start = (page - 1) * perPage + 1;
-    const end = Math.min(page * perPage, total);
-
-    document.getElementById('paginationInfo').textContent = 
-        total > 0 ? `Showing ${start}-${end} of ${total}` : 'No results';
-
-    const list = document.getElementById('paginationList');
-    if (totalPages <= 1) {
-        list.innerHTML = '';
-        return;
-    }
-
-    let html = `<li class="page-item ${page === 1 ? 'disabled' : ''}">
-        <a class="page-link" href="#" onclick="goToPage(${page - 1}); return false;">&laquo;</a>
-    </li>`;
-
-    for (let i = 1; i <= Math.min(totalPages, 5); i++) {
-        html += `<li class="page-item ${page === i ? 'active' : ''}">
-            <a class="page-link" href="#" onclick="goToPage(${i}); return false;">${i}</a>
-        </li>`;
-    }
-
-    html += `<li class="page-item ${page === totalPages ? 'disabled' : ''}">
-        <a class="page-link" href="#" onclick="goToPage(${page + 1}); return false;">&raquo;</a>
-    </li>`;
-
-    list.innerHTML = html;
-}
-
 function goToPage(page) {
     currentPage = page;
     loadIncidents();
@@ -247,6 +216,7 @@ document.getElementById('searchInput').addEventListener('input', debounce(loadIn
 document.getElementById('statusFilter').addEventListener('change', loadIncidents);
 document.getElementById('severityFilter').addEventListener('change', loadIncidents);
 document.getElementById('categoryFilter').addEventListener('change', loadIncidents);
+document.getElementById('sortBy').addEventListener('change', loadIncidents);
 
 loadIncidents();
 </script>

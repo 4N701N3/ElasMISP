@@ -6,11 +6,12 @@ from typing import Dict, Any, Optional, List, Tuple
 from app.services.elasticsearch_service import ElasticsearchService
 from app.services.cache_service import CacheService
 from app.services.audit_service import AuditService
+from app.services.base_service import BaseListService
 from app.models.stix_schema import STIXIndicator
 from app.utils.pattern_generator import PatternGenerator
 
 
-class IOCService:
+class IOCService(BaseListService):
     """Service for IOC CRUD operations with deduplication."""
     
     # Risk score weights and mappings
@@ -168,6 +169,15 @@ class IOCService:
         # No timezone indicator - add Z
         return timestamp + 'Z'
 
+    def _enrich_with_metadata(self, doc: Dict) -> Dict:
+        """Extract x_metadata fields to root level for frontend compatibility."""
+        if 'x_metadata' in doc and isinstance(doc['x_metadata'], dict):
+            metadata = doc['x_metadata']
+            # Add essential metadata fields to root level
+            for key in ['ioc_type', 'ioc_value', 'threat_level', 'tlp', 'campaigns', 'status', 'risk_score']:
+                if key in metadata and key not in doc:
+                    doc[key] = metadata[key]
+        return doc
     
     @classmethod
     def _convert_confidence_to_int(cls, confidence: str) -> Optional[int]:
@@ -354,6 +364,8 @@ class IOCService:
             doc['id'] = result['_id']
             # Sanitize to STIX 2.1 compliance
             doc = self._sanitize_stix_indicator(doc)
+            # Add metadata fields to root level for frontend compatibility
+            doc = self._enrich_with_metadata(doc)
             return doc
         return None
     
@@ -540,6 +552,9 @@ class IOCService:
             # Sanitize to STIX 2.1 compliance
             doc = self._sanitize_stix_indicator(doc)
             
+            # Add metadata fields to root level for frontend compatibility
+            doc = self._enrich_with_metadata(doc)
+            
             # Get count of relations for this IOC
             relations = self.es.search('ioc_relations', {
                 'query': {
@@ -578,7 +593,7 @@ class IOCService:
         
         result = self.es.aggregate(self.index, {
             "by_type": {
-                "terms": {"field": "ioc_type", "size": 10}
+                "terms": {"field": "x_metadata.ioc_type", "size": 100}
             },
             "by_label": {
                 "terms": {"field": "labels", "size": 20}
@@ -590,10 +605,10 @@ class IOCService:
                 "terms": {"field": "threat_level", "size": 5}
             },
             "by_status": {
-                "terms": {"field": "status", "size": 5}
+                "terms": {"field": "x_metadata.status", "size": 5}
             },
             "avg_risk_score": {
-                "avg": {"field": "risk_score"}
+                "avg": {"field": "x_metadata.risk_score"}
             },
             "total": {
                 "value_count": {"field": "id"}
@@ -745,18 +760,7 @@ class IOCService:
             'size': per_page
         })
         
-        items = []
-        for hit in result['hits']['hits']:
-            doc = hit['_source']
-            doc['id'] = hit['_id']
-            items.append(doc)
-        
-        return {
-            'items': items,
-            'total': result['hits']['total']['value'],
-            'page': page,
-            'per_page': per_page
-        }
+        return self.build_paginated_response(result, page, per_page)
     
     def restore_version(self, ioc_id: str, version_number: int, user_id: str = None, username: str = None) -> Optional[Dict]:
         """Restore an IOC to a previous version."""

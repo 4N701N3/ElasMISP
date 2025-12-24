@@ -7,6 +7,8 @@ from app.auth import permission_required
 from app.services.case_service import CaseService, IncidentService, TimelineService
 from app.services.comment_service import CommentService, SnippetService
 from app.services.audit_service import AuditService
+from app.services.elasticsearch_service import ElasticsearchService
+from app.utils.request_helpers import get_pagination_params, build_filters_dict
 
 bp = Blueprint('cases', __name__)
 
@@ -49,6 +51,10 @@ def list_cases():
       - name: search
         in: query
         type: string
+      - name: sort
+        in: query
+        type: string
+        description: 'Sort field and direction: field_asc or field_desc'
     responses:
       200:
         description: List of cases
@@ -61,22 +67,17 @@ def list_cases():
             page:
               type: integer
     """
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 20, type=int)
-    status = request.args.get('status')
-    priority = request.args.get('priority')
-    search = request.args.get('search')
+    page, per_page = get_pagination_params(default_per_page=20)
+    sort = request.args.get('sort', 'created_desc')
     
-    filters = {}
-    if status:
-        filters['status'] = status
-    if priority:
-        filters['priority'] = priority
-    if search:
-        filters['search'] = search
+    filters = build_filters_dict({
+        'status': None,
+        'priority': None,
+        'search': None
+    })
     
     result = case_service.list_cases(
-        page=page, per_page=per_page, filters=filters if filters else None
+        page=page, per_page=per_page, filters=filters if filters else None, sort=sort
     )
     return jsonify(result)
 
@@ -264,15 +265,33 @@ def link_incident_to_case(case_id):
 @login_required
 @permission_required('case.view')
 def get_case_stats():
-    """Get case statistics."""
-    cases = case_service.list_cases(page=1, per_page=1000)
+    """Get case statistics using Elasticsearch aggregation."""
+    es = ElasticsearchService()
+    
+    # Use Elasticsearch aggregation for accurate counts
+    result = es.aggregate('cases', {
+        'by_status': {
+            'terms': {'field': 'status', 'size': 10}
+        },
+        'by_priority': {
+            'terms': {'field': 'priority', 'size': 10}
+        }
+    })
+    
     stats = {
-        'total_cases': cases.get('total', 0),
-        'open_cases': len([c for c in cases.get('items', []) if c.get('status') == 'open']),
-        'in_progress_cases': len([c for c in cases.get('items', []) if c.get('status') == 'in-progress']),
-        'closed_cases': len([c for c in cases.get('items', []) if c.get('status') == 'closed']),
-        'high_priority_cases': len([c for c in cases.get('items', []) if c.get('priority') in ['high', 'critical']])
+        'total': es.count('cases'),
+        'by_status': {},
+        'by_priority': {}
     }
+    
+    aggs = result.get('aggregations', {})
+    
+    for bucket in aggs.get('by_status', {}).get('buckets', []):
+        stats['by_status'][bucket['key']] = bucket['doc_count']
+    
+    for bucket in aggs.get('by_priority', {}).get('buckets', []):
+        stats['by_priority'][bucket['key']] = bucket['doc_count']
+    
     return jsonify(stats)
 
 
@@ -307,6 +326,10 @@ def list_incidents():
       - name: search
         in: query
         type: string
+      - name: sort
+        in: query
+        type: string
+        description: 'Sort field and direction: field_asc or field_desc'
     responses:
       200:
         description: List of incidents
@@ -319,22 +342,17 @@ def list_incidents():
             page:
               type: integer
     """
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 20, type=int)
-    status = request.args.get('status')
-    severity = request.args.get('severity')
-    search = request.args.get('search')
+    page, per_page = get_pagination_params(default_per_page=20)
+    sort = request.args.get('sort', 'created_desc')
     
-    filters = {}
-    if status:
-        filters['status'] = status
-    if severity:
-        filters['severity'] = severity
-    if search:
-        filters['search'] = search
+    filters = build_filters_dict({
+        'status': None,
+        'severity': None,
+        'search': None
+    })
     
     result = incident_service.list_incidents(
-        page=page, per_page=per_page, filters=filters if filters else None
+        page=page, per_page=per_page, filters=filters if filters else None, sort=sort
     )
     return jsonify(result)
 
@@ -887,8 +905,7 @@ def get_comment_count(entity_type, entity_id):
 @permission_required('snippet.view')
 def list_snippets():
     """List snippets available to the user."""
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
+    page, per_page = get_pagination_params(default_per_page=50)
     category = request.args.get('category')
     search = request.args.get('search')
     include_global = request.args.get('include_global', 'true').lower() == 'true'

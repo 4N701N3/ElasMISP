@@ -748,11 +748,6 @@ function deleteComment(commentId) {
 }
 
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text || '';
-    return div.innerHTML;
-}
 
 function debounce(func, wait) {
     let timeout;

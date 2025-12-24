@@ -7,6 +7,7 @@ from flask import Blueprint, request, jsonify, g
 
 from app.auth import login_or_api_key_required
 from app.services.elasticsearch_service import ElasticsearchService
+from app.utils.request_helpers import get_pagination_params
 from app.tasks.webhook_tasks import test_webhook
 
 webhook_bp = Blueprint('webhooks', __name__)
@@ -283,8 +284,7 @@ def get_webhook_logs(webhook_id):
         return jsonify({'error': 'Not authorized'}), 403
     
     # Get logs
-    page = request.args.get('page', 1, type=int)
-    per_page = min(request.args.get('per_page', 20, type=int), 100)
+    page, per_page = get_pagination_params(default_per_page=20)
     
     from_idx = (page - 1) * per_page
     
@@ -327,15 +327,14 @@ def get_all_webhook_logs():
         return jsonify({'logs': []})
     
     # Get logs for all webhooks
-    page = request.args.get('page', 1, type=int)
-    size = min(request.args.get('size', 20, type=int), 100)
+    page, per_page = get_pagination_params(default_per_page=20)
     
-    from_idx = (page - 1) * size
+    from_idx = (page - 1) * per_page
     
     logs_result = es.search('webhook_logs', {
         'query': {'terms': {'webhook_id': webhook_ids}},
         'from': from_idx,
-        'size': size,
+        'size': per_page,
         'sort': [{'timestamp': {'order': 'desc'}}]
     })
     
@@ -349,7 +348,7 @@ def get_all_webhook_logs():
         'logs': logs,
         'total': logs_result['hits']['total']['value'],
         'page': page,
-        'size': size
+        'per_page': per_page
     })
 
 

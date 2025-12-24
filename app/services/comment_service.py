@@ -5,9 +5,10 @@ from typing import Dict, List, Optional
 import secrets
 
 from app.services.elasticsearch_service import ElasticsearchService
+from app.services.base_service import BaseListService
 
 
-class CommentService:
+class CommentService(BaseListService):
     """Service for managing comments on IOCs, incidents, and cases."""
     
     def __init__(self):
@@ -125,20 +126,13 @@ class CommentService:
             'size': per_page
         })
         
-        comments = []
-        for hit in result['hits']['hits']:
-            comment = hit['_source']
-            comment['id'] = hit['_id']
-            # Load replies
-            comment['replies'] = self._get_replies(comment['id'])
-            comments.append(comment)
+        comments = self.build_hits_from_search(result)
         
-        return {
-            'items': comments,
-            'total': result['hits']['total']['value'],
-            'page': page,
-            'per_page': per_page
-        }
+        # Load replies for each comment
+        for comment in comments:
+            comment['replies'] = self._get_replies(comment['id'])
+        
+        return self.build_paginated_response(result, page, per_page, comments)
     
     def _get_replies(self, parent_id: str) -> List[Dict]:
         """Get replies to a comment."""
@@ -148,12 +142,11 @@ class CommentService:
             'size': 100
         })
         
-        replies = []
-        for hit in result['hits']['hits']:
-            reply = hit['_source']
-            reply['id'] = hit['_id']
-            reply['replies'] = self._get_replies(reply['id'])  # Nested replies
-            replies.append(reply)
+        replies = self.build_hits_from_search(result)
+        
+        # Nested replies
+        for reply in replies:
+            reply['replies'] = self._get_replies(reply['id'])
         
         return replies
     

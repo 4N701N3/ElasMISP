@@ -5,7 +5,9 @@ from flask import Blueprint, request, jsonify
 from app.auth import login_or_api_key_required
 from app.services.elasticsearch_service import ElasticsearchService
 from app.services.enrichment_service import EnrichmentService
+from app.services.ioc_service import IOCService
 from app.utils.pattern_generator import PatternGenerator
+from app.utils.request_helpers import get_pagination_params, parse_comma_separated_list
 
 search_bp = Blueprint('search', __name__)
 es_service = ElasticsearchService()
@@ -92,9 +94,9 @@ def search_iocs():
     source = data.get('source')
     from_date = data.get('from_date')
     to_date = data.get('to_date')
-    page = int(data.get('page', 1))
-    per_page = min(int(data.get('per_page', 20)), 100)
     enrich = data.get('enrich', 'false').lower() == 'true' if isinstance(data.get('enrich'), str) else bool(data.get('enrich'))
+    
+    page, per_page = get_pagination_params(default_per_page=20)
     
     # Handle labels
     labels = data.get('labels')
@@ -160,19 +162,22 @@ def search_iocs():
     })
     
     items = []
+    ioc_service = IOCService()
     for hit in result['hits']['hits']:
-        doc = hit['_source']
-        doc['id'] = hit['_id']
-        if 'highlight' in hit:
-            doc['_highlight'] = hit['highlight']
-        
-        # Add compatibility aliases for frontend
-        if 'ioc_value' in doc and 'value' not in doc:
-            doc['value'] = doc['ioc_value']
-        if 'ioc_type' in doc and 'type' not in doc:
-            doc['type'] = doc['ioc_type']
-        
-        items.append(doc)
+        doc_id = hit['_id']
+        # Use IOCService to get enriched document with metadata
+        doc = ioc_service.get(doc_id)
+        if doc:
+            if 'highlight' in hit:
+                doc['_highlight'] = hit['highlight']
+            
+            # Add compatibility aliases for frontend
+            if 'ioc_value' in doc and 'value' not in doc:
+                doc['value'] = doc['ioc_value']
+            if 'ioc_type' in doc and 'type' not in doc:
+                doc['type'] = doc['ioc_type']
+            
+            items.append(doc)
     
     response = {
         'query': query_text,
@@ -246,9 +251,12 @@ def quick_search():
     })
     
     for hit in es_result['hits']['hits']:
-        doc = hit['_source']
-        doc['id'] = hit['_id']
-        result['items'].append(doc)
+        doc_id = hit['_id']
+        # Use IOCService to get enriched document with metadata
+        ioc_service = IOCService()
+        doc = ioc_service.get(doc_id)
+        if doc:
+            result['items'].append(doc)
     
     result['total'] = es_result['hits']['total']['value']
     

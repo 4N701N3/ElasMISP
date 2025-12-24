@@ -6,6 +6,7 @@ import secrets
 
 from app.services.elasticsearch_service import ElasticsearchService
 from app.services.audit_service import AuditService
+from app.services.base_service import BaseListService
 
 
 class CaseService:
@@ -124,7 +125,7 @@ class CaseService:
         
         return True
     
-    def list_cases(self, page: int = 1, per_page: int = 20, filters: Dict = None) -> Dict:
+    def list_cases(self, page: int = 1, per_page: int = 20, filters: Dict = None, sort: str = 'created_desc') -> Dict:
         """List cases with pagination and filters."""
         from_idx = (page - 1) * per_page
         
@@ -150,9 +151,56 @@ class CaseService:
         if not query['bool']['must']:
             query = {'match_all': {}}
         
+        # Parse sort parameter
+        sort_field = 'created_at'
+        sort_order = 'desc'
+        
+        if sort:
+            if '_asc' in sort:
+                sort_order = 'asc'
+                sort_field = sort.replace('_asc', '')
+            elif '_desc' in sort:
+                sort_order = 'desc'
+                sort_field = sort.replace('_desc', '')
+        
+        # Map field names
+        field_map = {
+            'title': 'title.keyword',
+            'status': 'status',
+            'priority': 'priority',
+            'severity': 'severity',
+            'created': 'created_at',
+            'updated': 'updated_at'
+        }
+        
+        sort_field = field_map.get(sort_field, 'created_at')
+        
+        # Handle severity sorting with custom script (numeric mapping)
+        if sort_field == 'severity':
+            sort_config = {
+                '_script': {
+                    'type': 'number',
+                    'script': {
+                        'source': "params['severity_order'].getOrDefault(doc['severity'].value, 0)",
+                        'params': {
+                            'severity_order': {
+                                'critical': 4,
+                                'high': 3,
+                                'medium': 2,
+                                'low': 1,
+                                'informational': 0
+                            }
+                        }
+                    },
+                    'order': sort_order
+                }
+            }
+        else:
+            sort_config = {sort_field: {'order': sort_order}}
+        
         result = self.es.search('cases', {
             'query': query,
-            'sort': [{'updated_at': {'order': 'desc'}}],
+            'sort': [sort_config],
             'from': from_idx,
             'size': per_page
         })
@@ -353,7 +401,7 @@ class IncidentService:
         
         return True
     
-    def list_incidents(self, page: int = 1, per_page: int = 20, filters: Dict = None) -> Dict:
+    def list_incidents(self, page: int = 1, per_page: int = 20, filters: Dict = None, sort: str = 'created_desc') -> Dict:
         """List incidents with pagination and filters."""
         from_idx = (page - 1) * per_page
         
@@ -379,9 +427,55 @@ class IncidentService:
         if not query['bool']['must']:
             query = {'match_all': {}}
         
+        # Parse sort parameter
+        sort_field = 'created_at'
+        sort_order = 'desc'
+        
+        if sort:
+            if '_asc' in sort:
+                sort_order = 'asc'
+                sort_field = sort.replace('_asc', '')
+            elif '_desc' in sort:
+                sort_order = 'desc'
+                sort_field = sort.replace('_desc', '')
+        
+        # Map field names
+        field_map = {
+            'title': 'title.keyword',
+            'status': 'status',
+            'severity': 'severity',
+            'category': 'category',
+            'created': 'created_at',
+            'updated': 'updated_at'
+        }
+        
+        sort_field = field_map.get(sort_field, 'created_at')
+        
+        # Handle severity sorting with custom script (numeric mapping)
+        if sort_field == 'severity':
+            sort_config = {
+                '_script': {
+                    'type': 'number',
+                    'script': {
+                        'source': "params['severity_order'].getOrDefault(doc['severity'].value, 0)",
+                        'params': {
+                            'severity_order': {
+                                'critical': 4,
+                                'high': 3,
+                                'medium': 2,
+                                'low': 1
+                            }
+                        }
+                    },
+                    'order': sort_order
+                }
+            }
+        else:
+            sort_config = {sort_field: {'order': sort_order}}
+        
         result = self.es.search('incidents', {
             'query': query,
-            'sort': [{'updated_at': {'order': 'desc'}}],
+            'sort': [sort_config],
             'from': from_idx,
             'size': per_page
         })
@@ -437,11 +531,11 @@ class IncidentService:
         return True
 
 
-class TimelineService:
+class TimelineService(BaseListService):
     """Service for managing investigation timeline events."""
     
     def __init__(self):
-        self.es = ElasticsearchService()
+        super().__init__()
     
     def add_event(self, data: Dict, user_id: str, username: str) -> Dict:
         """Add a timeline event."""
@@ -520,15 +614,4 @@ class TimelineService:
             'size': per_page
         })
         
-        items = []
-        for hit in result['hits']['hits']:
-            event = hit['_source']
-            event['id'] = hit['_id']
-            items.append(event)
-        
-        return {
-            'items': items,
-            'total': result['hits']['total']['value'],
-            'page': page,
-            'per_page': per_page
-        }
+        return self.build_paginated_response(result, page, per_page)
