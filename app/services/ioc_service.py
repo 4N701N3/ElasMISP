@@ -168,6 +168,15 @@ class IOCService:
         # No timezone indicator - add Z
         return timestamp + 'Z'
 
+    def _enrich_with_metadata(self, doc: Dict) -> Dict:
+        """Extract x_metadata fields to root level for frontend compatibility."""
+        if 'x_metadata' in doc and isinstance(doc['x_metadata'], dict):
+            metadata = doc['x_metadata']
+            # Add essential metadata fields to root level
+            for key in ['ioc_type', 'ioc_value', 'threat_level', 'tlp', 'campaigns', 'status', 'risk_score']:
+                if key in metadata and key not in doc:
+                    doc[key] = metadata[key]
+        return doc
     
     @classmethod
     def _convert_confidence_to_int(cls, confidence: str) -> Optional[int]:
@@ -354,6 +363,8 @@ class IOCService:
             doc['id'] = result['_id']
             # Sanitize to STIX 2.1 compliance
             doc = self._sanitize_stix_indicator(doc)
+            # Add metadata fields to root level for frontend compatibility
+            doc = self._enrich_with_metadata(doc)
             return doc
         return None
     
@@ -539,6 +550,9 @@ class IOCService:
             
             # Sanitize to STIX 2.1 compliance
             doc = self._sanitize_stix_indicator(doc)
+            
+            # Add metadata fields to root level for frontend compatibility
+            doc = self._enrich_with_metadata(doc)
             
             # Get count of relations for this IOC
             relations = self.es.search('ioc_relations', {

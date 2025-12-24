@@ -3,6 +3,7 @@
 from flask import Blueprint, request, jsonify, g
 from app.auth import login_or_api_key_required
 from app.services.elasticsearch_service import ElasticsearchService
+from app.services.ioc_service import IOCService
 from datetime import datetime
 import uuid
 
@@ -51,6 +52,7 @@ def get_ioc_relations(ioc_id):
         description: IOC not found
     """
     es = ElasticsearchService()
+    ioc_service = IOCService()
     
     # Find relations where this IOC is the source or target
     relations = es.search('ioc_relations', {
@@ -71,12 +73,10 @@ def get_ioc_relations(ioc_id):
         # Get the other IOC ID
         other_id = relation['target_id'] if relation['source_id'] == ioc_id else relation['source_id']
         
-        # Get the related IOC
+        # Get the related IOC using IOCService to ensure enrichment
         try:
-            ioc = es.get('ioc', other_id)
-            if ioc:
-                ioc_data = ioc['_source']
-                ioc_data['id'] = other_id
+            ioc_data = ioc_service.get(other_id)
+            if ioc_data:
                 ioc_data['relation_type'] = relation.get('relation_type', 'related')
                 related_iocs.append(ioc_data)
         except:

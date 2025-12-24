@@ -158,6 +158,42 @@
         transform: translateY(-2px);
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     }
+    
+    [data-theme="dark"] .btn-control {
+        color: #e9ecef;
+    }
+    
+    [data-theme="dark"] .btn-control.btn-primary {
+        background-color: #3498db;
+        border-color: #3498db;
+    }
+    
+    [data-theme="dark"] .btn-control.btn-primary:hover {
+        background-color: #2980b9;
+        border-color: #2980b9;
+    }
+    
+    [data-theme="dark"] .btn-control.btn-outline-secondary {
+        background-color: transparent;
+        border: 1px solid #6c757d;
+        color: #6c757d;
+    }
+    
+    [data-theme="dark"] .btn-control.btn-outline-secondary:hover {
+        background-color: #6c757d;
+        color: #e9ecef;
+    }
+    
+    [data-theme="dark"] .btn-control.btn-outline-danger {
+        background-color: transparent;
+        border: 1px solid #dc3545;
+        color: #dc3545;
+    }
+    
+    [data-theme="dark"] .btn-control.btn-outline-danger:hover {
+        background-color: #dc3545;
+        color: #e9ecef;
+    }
 
     .legend {
         position: absolute;
@@ -419,13 +455,34 @@
     .spinner-border {
         color: #007bff;
     }
+
+    #emptyGraphMessage {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        color: #666;
+        font-size: 16px;
+        z-index: 10;
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    [data-theme="dark"] #emptyGraphMessage {
+        background: #22262a;
+        color: #e9ecef;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="graph-container">
     <div id="cy">
-        <div id="emptyGraphMessage" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #666; font-size: 16px; z-index: 10; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <div id="emptyGraphMessage">
             <p><i class="bi bi-search" style="font-size: 32px; display: block; margin-bottom: 10px;"></i></p>
             <p>Please perform a search to display IOCs on the graph</p>
         </div>
