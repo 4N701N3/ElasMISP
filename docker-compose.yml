@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: ghcr.io/ll7baucarre/elasmisp:latest
     container_name: elasmisp-app
     cap_add:
       - NET_RAW
@@ -38,6 +39,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: ghcr.io/ll7baucarre/elasmisp:latest
     container_name: elasmisp-celery
     command: celery -A app.celery_app worker --loglevel=info
     environment:
