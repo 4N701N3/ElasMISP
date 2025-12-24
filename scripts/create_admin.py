@@ -104,7 +104,7 @@ def main():
     if create_admin_user(es, username, password, email):
         print(f"\n{'=' * 50}")
         print("✓ Admin user created successfully!")
-        print(f"\nYou can now login at: http://localhost:5000/login")
+        print(f"\nYou can now login at: http://localhost:5000/auth/login")
     else:
         sys.exit(1)
 

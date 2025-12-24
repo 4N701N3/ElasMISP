@@ -206,12 +206,17 @@ ELASTICSEARCH_PASSWORD=your-password
 - **IOC Graph**: http://localhost:5000/iocs/graph (requires login)
 - **Dashboard**: Shows real-time IOC statistics and recent activities
 
-5. Create your first admin user:
+5. Initialize elasticsearch:
+```bash
+docker-compose exec app python scripts/init_elasticsearch.py
+```
+
+6. Create your first admin user:
 ```bash
 docker-compose exec app python scripts/create_admin.py
 ```
 
-6. **Generate Demo Data** (optional, for testing):
+7. **Generate Demo Data** (optional, for testing):
 ```bash
 # Enable demo data in .env
 export DEMO_DATA_ENABLED=true
